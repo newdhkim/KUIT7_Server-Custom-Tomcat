@@ -67,20 +67,8 @@ public class RequestHandler implements Runnable{
     private void handlePost(DataOutputStream dos, String url, BufferedReader br) throws IOException {
         // 회원가입 로직
         if (url.equals("/user/signup")) {
-            String queryString;
-            int contentLength = 0;
-
-            // Header Line이 끝나는 공백 다음부터 body이므로 해당 줄까지 넘김
-            // + Content-Length 값 저장
-            while (!(queryString = br.readLine()).isEmpty()) {
-                if (queryString.contains("Content-Length")) {
-                    contentLength = Integer.parseInt(queryString.split(": ")[1].trim());
-                }
-            }
-
-            // IOUtils, HttpRequestUtils 활용해 쿼리스트링 파싱
-            queryString = IOUtils.readData(br, contentLength);
-            Map<String, String> parameters = HttpRequestUtils.parseQueryParameter(queryString);
+            // body 읽어서 반환하는 메서드 호출
+            Map<String, String> parameters = parseRequestBody(br);
 
             // memoryUserRepository에 사용자가 입력한 ID가 존재하지 않는 경우 새로 추가
             Repository repository = MemoryUserRepository.getInstance();
@@ -92,12 +80,61 @@ public class RequestHandler implements Runnable{
 
                 // 다시 index.html 화면 띄우기
                 // HTTP Response message 의 status line을 "302 Found"로 설정
-                response302Header(dos, "/index.html");
+                response302Header(dos, "/index.html", false);
+                log.log(Level.INFO, "New User created! ID: " + newUser.getUserId()
+                        + ", PW: " + newUser.getPassword());
             }
 
             // 사용자가 입력한 ID가 존재하는 경우
             // ...
+
+            return;
         }
+
+        // Tomcat 구현 1단계 - 요구사항 5: 로그인하기
+        if (url.equals("/user/login")) {
+            log.log(Level.INFO, "Login attempt ...");
+            // body 읽어서 반환하는 메서드 호출
+            Map<String, String> parameters = parseRequestBody(br);
+
+            String loginId = parameters.get("userId");
+            String loginPassword = parameters.get("password");
+
+            // MemoryUserRepository 불러오기
+            Repository repository = MemoryUserRepository.getInstance();
+            User user = repository.findUserById(loginId);
+
+            // 로그인 성공 시
+            if (user != null && (user.getPassword()).equals(loginPassword)) {
+                log.log(Level.INFO, "Login successful! ID: " + loginId);
+                response302Header(dos, "/index.html", true);  // "cookie: true": 쿠키 있음
+                return;
+            }
+
+            // 로그인 실패 시
+            log.log(Level.INFO, "Login failed. ID: " + loginId);
+            response302Header(dos, "/user/login_failed.html", false);
+        }
+    }
+
+    // POST 요청의 Request message 의 body 를 읽어서 Map으로 반환하는 메서드
+    private Map<String, String> parseRequestBody(BufferedReader br) throws IOException {
+
+        String queryString;
+        int contentLength = 0;
+
+        // Header Line이 끝나는 공백 다음부터 body이므로 해당 줄까지 넘김
+        // + Content-Length 값 저장
+        while (!(queryString = br.readLine()).isEmpty()) {
+            if (queryString.contains("Content-Length")) {
+                contentLength = Integer.parseInt(queryString.split(": ")[1].trim());
+            }
+        }
+
+        // IOUtils, HttpRequestUtils 활용해 쿼리스트링 파싱
+        queryString = IOUtils.readData(br, contentLength);
+
+        return HttpRequestUtils.parseQueryParameter(queryString);
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
@@ -111,15 +148,17 @@ public class RequestHandler implements Runnable{
         }
     }
 
-    private void response302Header(DataOutputStream dos, String url) {
+    // Tomcat 구현 1단계 - 요구사항 4: 302 status code 적용
+    private void response302Header(DataOutputStream dos, String url, boolean cookie) {
         try {
             dos.writeBytes("HTTP/1.1 302 Found \r\n");
             dos.writeBytes("Location: " + url + "\r\n");
+            if (cookie)  // 쿠키 추가
+                dos.writeBytes(("Set-Cookie: logined=true\r\n"));
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.log(Level.SEVERE, e.getMessage());
         }
-
     }
 
     private void responseBody(DataOutputStream dos, byte[] body) {
