@@ -73,8 +73,8 @@ public class RequestHandler implements Runnable{
             // Header Line이 끝나는 공백 다음부터 body이므로 해당 줄까지 넘김
             // + Content-Length 값 저장
             while (!(queryString = br.readLine()).isEmpty()) {
-                if (queryString.split(": ")[0].equals("Content-Length")) {
-                    contentLength = Integer.parseInt(queryString.split(": ")[1]);
+                if (queryString.contains("Content-Length")) {
+                    contentLength = Integer.parseInt(queryString.split(": ")[1].trim());
                 }
             }
 
@@ -91,7 +91,8 @@ public class RequestHandler implements Runnable{
                 repository.addUser(newUser);
 
                 // 다시 index.html 화면 띄우기
-                responseHtmlFile(dos, "/index.html");
+                // HTTP Response message 의 status line을 "302 Found"로 설정
+                response302Header(dos, "/index.html");
             }
 
             // 사용자가 입력한 ID가 존재하는 경우
@@ -108,6 +109,17 @@ public class RequestHandler implements Runnable{
         } catch (IOException e) {
             log.log(Level.SEVERE, e.getMessage());
         }
+    }
+
+    private void response302Header(DataOutputStream dos, String url) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: " + url + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.log(Level.SEVERE, e.getMessage());
+        }
+
     }
 
     private void responseBody(DataOutputStream dos, byte[] body) {
