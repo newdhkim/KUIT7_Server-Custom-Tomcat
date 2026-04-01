@@ -2,6 +2,8 @@ package webserver;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -20,9 +22,23 @@ public class RequestHandler implements Runnable{
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
             DataOutputStream dos = new DataOutputStream(out);
 
-            byte[] body = "Hello World".getBytes();
-            response200Header(dos, body.length);
-            responseBody(dos, body);
+//            byte[] body = "Hello World".getBytes();
+//            response200Header(dos, body.length);
+//            responseBody(dos, body);
+
+            // Tomcat 구현 1단계 - 요구사항 1: index.html 반환하기
+            String startLine[] = br.readLine()
+                    .split(" ");
+            if (startLine[0].equals("GET")) {
+                String path = "./webapp";
+                if (startLine[1].equals("/")) {
+                    startLine[1] = "/index.html";
+                }
+                path += startLine[1];
+                byte[] body = Files.readAllBytes(Paths.get(path));
+                response200Header(dos, body.length);
+                responseBody(dos, body);
+            }
 
         } catch (IOException e) {
             log.log(Level.SEVERE,e.getMessage());
