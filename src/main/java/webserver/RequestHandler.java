@@ -1,9 +1,17 @@
 package webserver;
 
+import db.MemoryUserRepository;
+import db.Repository;
+import http.util.HttpRequestUtils;
+import model.User;
+
 import java.io.*;
 import java.net.Socket;
+import java.net.http.HttpRequest;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,27 +30,54 @@ public class RequestHandler implements Runnable{
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
             DataOutputStream dos = new DataOutputStream(out);
 
-//            byte[] body = "Hello World".getBytes();
-//            response200Header(dos, body.length);
-//            responseBody(dos, body);
-
             // Tomcat 구현 1단계 - 요구사항 1: index.html 반환하기
             String startLine[] = br.readLine()
                     .split(" ");
             if (startLine[0].equals("GET")) {
-                String path = "./webapp";
-                if (startLine[1].equals("/")) {
-                    startLine[1] = "/index.html";
+
+                // Tomcat 구현 1단계 - 요구사항 2: GET 방식으로 회원가입 하기
+                if (startLine[1].startsWith("/user/signup")) {
+                    // ?를 기준으로 쿼리스트링 분리 및 &를 기준으로 쿼리스트링 파싱
+                    String queryString = startLine[1].split("\\?")[1];
+                    Map<String, String> parameters = HttpRequestUtils.parseQueryParameter(queryString);
+
+                    Repository repository = MemoryUserRepository.getInstance();
+
+                    // memoryUserRepository에 사용자가 입력한 ID가 존재하지 않는 경우 새로 추가
+                    if ((repository.findUserById(parameters.get("userId"))) == null) {
+                        User newUser = new User(parameters.get("userId"), parameters.get("password"),
+                                parameters.get("name"), parameters.get("email"));
+                        repository.addUser(newUser);
+
+                        // 다시 index.html 화면 띄우기
+                        responseHtmlFile(dos, "/index.html");
+
+                        return;
+                    }
+
+                    // 사용자가 입력한 ID가 존재하는 경우
+                    // ...
                 }
-                path += startLine[1];
-                byte[] body = Files.readAllBytes(Paths.get(path));
-                response200Header(dos, body.length);
-                responseBody(dos, body);
+
+                responseHtmlFile(dos, startLine[1]);
             }
 
         } catch (IOException e) {
             log.log(Level.SEVERE,e.getMessage());
         }
+    }
+
+    // 요청 URL에 해당하는 HTML 파일을 읽어 응답으로 반환하는 메서드
+    private void responseHtmlFile(DataOutputStream dos, String url) throws IOException {
+
+        String path = "./webapp";
+        if (url.equals("/")) {
+            url = "/index.html";
+        }
+        path += url;
+        byte[] body = Files.readAllBytes(Paths.get(path));
+        response200Header(dos, body.length);
+        responseBody(dos, body);
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
