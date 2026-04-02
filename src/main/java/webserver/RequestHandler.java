@@ -3,13 +3,14 @@ package webserver;
 import db.MemoryUserRepository;
 import db.Repository;
 import enums.*;
+import http.HttpRequest;
+import http.HttpHeaderLine;
 import http.util.HttpRequestUtils;
 import http.util.IOUtils;
 import model.User;
 
 import java.io.*;
 import java.net.Socket;
-import java.net.http.HttpRequest;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
