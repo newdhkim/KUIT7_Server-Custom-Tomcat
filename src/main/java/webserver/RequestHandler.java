@@ -15,20 +15,19 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class RequestHandler implements Runnable{
+public class RequestHandler implements Runnable {
     Socket connection;
     private static final Logger log = Logger.getLogger(RequestHandler.class.getName());
 
-    private final Repository repository;
     private Controller controller = new ForwardController();
 
     public RequestHandler(Socket connection) {
-        this.repository = MemoryUserRepository.getInstance();
         this.connection = connection;
     }
 
@@ -43,48 +42,12 @@ public class RequestHandler implements Runnable{
             HttpRequest httpRequest = HttpRequest.from(br);
             HttpResponse httpResponse = new HttpResponse(out);
 
-            String method = httpRequest.getStartLine()
-                    .getMethod();
-            String url = httpRequest.getStartLine()
-                    .getUrl();
-
-            // html 반환
-            if (url.equals(URL.ROOT.getURL())) {
-                log.log(Level.INFO, "Root URL");
-                controller = new HomeController();
-            }
-
-            if (method.equals(HttpMethod.GET.name()) &&
-                    (url.endsWith(".html") || url.endsWith(".css"))) {
-                log.log(Level.INFO, "GET HTML");
-                controller = new ForwardController();
-            }
-
-            // 회원가입 요청 처리
-            if (url.equals(URL.USER_SIGNUP.getURL())) {
-                log.log(Level.INFO, "Signup");
-                controller = new SignUpController();
-            }
-
-            // 로그인 요청 처리
-            if (url.equals(URL.USER_LOGIN.getURL())) {
-                log.log(Level.INFO, "Login");
-                controller = new LoginController();
-            }
-
-            // 사용자 목록 출력
-            if (url.equals(URL.USER_LIST.getURL())) {
-                log.log(Level.INFO, "List");
-                controller = new UserListController();
-            }
-
-            log.log(Level.INFO, "Method: " + method + ", URL: " + url);
-            log.log(Level.INFO, "Body: " + httpRequest.getBody());
-
-            controller.execute(httpRequest, httpResponse);
+            RequestMapper requestMapper = new RequestMapper(httpRequest, httpResponse);
+            requestMapper.proceed();
 
         } catch (IOException e) {
             log.log(Level.SEVERE,e.getMessage());
+            System.out.println(Arrays.toString(e.getStackTrace()));
         }
     }
 }
