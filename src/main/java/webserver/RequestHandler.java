@@ -69,7 +69,8 @@ public class RequestHandler implements Runnable{
 
             log.log(Level.INFO, "Cookie : " + headers.get("Cookie"));
             // 로그인이 되어있는 경우, "/user/list.html"로 redirect
-            if (headers.get("Cookie").contains("logined=true")) {  // cookie가 여러 개일 경우 처리
+            if (headers.get("Cookie") != null &&
+                    headers.get("Cookie").contains("logined=true")) {  // cookie가 여러 개일 경우 처리
                 url = "/user/list.html";
                 isCookie = true;
             }
@@ -81,7 +82,14 @@ public class RequestHandler implements Runnable{
 
         path += url;
         byte[] body = Files.readAllBytes(Paths.get(path));
-        response200Header(dos, body.length);
+
+        // Tomcat 구현 1단계 - 요구사항 7: CSS 출력
+        boolean isCss = false;
+        if (url.endsWith(".css")) {
+            log.log(Level.INFO, "CSS applied!");
+            isCss = true;
+        }
+        response200Header(dos, body.length, isCss);
         responseBody(dos, body);
     }
 
@@ -172,10 +180,14 @@ public class RequestHandler implements Runnable{
         return headers;
     }
 
-    private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
+    private void response200Header(DataOutputStream dos, int lengthOfBodyContent, boolean css) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            // .css 적용
+            if (css)
+                dos.writeBytes("Content-Type: text/css; charset=utf-8\r\n");
+            else
+                dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
