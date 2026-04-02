@@ -36,7 +36,7 @@ public class RequestHandler implements Runnable{
 
             // Tomcat 구현 1단계 - 요구사항 1: index.html 반환하기
             if (startLine[0].equals("GET")) {
-                responseHtmlFile(dos, startLine[1]);
+                handleGet(br, dos, startLine[1]);
                 return;
             }
 
@@ -51,12 +51,34 @@ public class RequestHandler implements Runnable{
     }
 
     // GET 방식의 요청 URL에 해당하는 HTML 파일을 읽어 응답으로 반환하는 메서드
-    private void responseHtmlFile(DataOutputStream dos, String url) throws IOException {
+    private void handleGet(BufferedReader br, DataOutputStream dos, String url) throws IOException {
 
         String path = "./webapp";
         if (url.equals("/")) {
             url = "/index.html";
         }
+
+        // Tomcat 구현 1단계 - 요구사항 6: 사용자 목록 출력
+        if (url.equals("/user/userList")) {
+            log.log(Level.INFO, "Access User List ...");
+            // 로그인이 안 되어있다고 가정, "/index.html"로 redirect
+            url = "/index.html";
+            boolean isCookie = false;
+
+            Map<String, String> headers = parseRequestHeader(br);
+
+            log.log(Level.INFO, "Cookie : " + headers.get("Cookie"));
+            // 로그인이 되어있는 경우, "/user/list.html"로 redirect
+            if (headers.get("Cookie").contains("logined=true")) {  // cookie가 여러 개일 경우 처리
+                url = "/user/list.html";
+                isCookie = true;
+            }
+
+            response302Header(dos, url, isCookie);
+
+            return;
+        }
+
         path += url;
         byte[] body = Files.readAllBytes(Paths.get(path));
         response200Header(dos, body.length);
@@ -135,6 +157,19 @@ public class RequestHandler implements Runnable{
         queryString = IOUtils.readData(br, contentLength);
 
         return HttpRequestUtils.parseQueryParameter(queryString);
+    }
+
+    private Map<String, String> parseRequestHeader(BufferedReader br) throws IOException {
+
+        String headerLine;
+        Map<String, String> headers = new HashMap<>();
+
+        while (!(headerLine = br.readLine()).isEmpty()) {
+            String[] KeyValue = headerLine.split(": ");
+            headers.put(KeyValue[0].trim(), KeyValue[1].trim());
+        }
+
+        return headers;
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
